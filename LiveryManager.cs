@@ -15,24 +15,28 @@ namespace LiveryManager
 
         public void Walk()
         {
-            WalkFilesAndDirectories(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile) + "/Documents/iRacing/paint");
+            string workingDir = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile) + "/Documents/iRacing/paint";
+            long freedSpace = WalkFilesAndDirectories(workingDir);
+            Console.WriteLine($"FileWalker freed up {FormatToHumanReadableSize(freedSpace)} in {workingDir} and its subfolders.");
         }
 
-        void WalkFilesAndDirectories(string path)
+        long WalkFilesAndDirectories(string path)
         {
+            long freedSpace = 0;
             // process all sub-folders (in any)
             foreach (var directory in Directory.EnumerateDirectories(path))
             {
-                WalkFilesAndDirectories(directory);
+                freedSpace += WalkFilesAndDirectories(directory);
             }
             // process all files (in any)
             foreach (var file in Directory.EnumerateFiles(path))
             {
-                ProcessFile(file);
+                freedSpace += ProcessFile(file);
             }
+            return freedSpace;
         }
 
-        void ProcessFile(string file)
+        long ProcessFile(string file)
         {
             var fileInfo = new FileInfo(file);
             if (fileInfo.LastAccessTime <= DateTime.Now.AddDays(this.deleteOlderThanDays * -1))
@@ -41,12 +45,31 @@ namespace LiveryManager
                 {
                     if (fileInfo.Name.EndsWith(exceptedDriverTeamID + ".tga") || fileInfo.Name.EndsWith(exceptedDriverTeamID + ".mip"))
                     {
-                        return;
+                        return 0;
                     }
                 }
                 Console.WriteLine(fileInfo.FullName + " hasn't been accessed within the last " + this.deleteOlderThanDays + " days and will be deleted.");
                 File.Delete(file);
+                return fileInfo.Length;
             }
+            return 0;
+        }
+
+        string FormatToHumanReadableSize(long bytes)
+        {
+            if (bytes > 1024 * 1024 * 1024)
+            {
+                return String.Format("{0:0.##}", bytes / (1024.0 * 1024.0 * 1024.0)) + " GB";
+            }
+            if (bytes > 1024 * 1024)
+            {
+                return String.Format("{0:0.##}", bytes / (1024.0 * 1024.0)) + " MB";
+            }
+            if (bytes > 1024)
+            {
+                return String.Format("{0:0.##}", bytes / 1024.0) + " KB";
+            }
+            return bytes + " bytes";
         }
     }
 }
